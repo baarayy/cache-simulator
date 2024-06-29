@@ -1,6 +1,19 @@
 #include "cachelab.h"
 #include <getopt.h>
-
+typedef struct {
+    int validBit;
+    long long tag;
+    int LRU;
+} CacheLine;
+// in order to create cache i need to know 
+// the number of sets and the number of lines in each set
+CacheLine** createCache(int S ,int E) {
+    CacheLine** cache = (CacheLine**)malloc(S * sizeof(CacheLine*)); 
+    for(int i = 0 ; i < S ; i++) {
+        cache[i] = (CacheLine*)malloc(E * sizeof(CacheLine));
+    }
+    return cache;
+}
 int main(int argc ,char *argv[])
 {
     // We need to parse the command arguments to get the values of s , E , b
@@ -26,6 +39,7 @@ int main(int argc ,char *argv[])
             }
     }
     int S = 1 << s; // number of sets is 2^s 
+    CacheLine** cache = createCache(S, E);
     printSummary(0, 0, 0);
     return 0;
 }
