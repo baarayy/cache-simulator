@@ -1,5 +1,10 @@
 #include "cachelab.h"
 #include <getopt.h>
+
+static int hits = 0;
+static int misses = 0;
+static int evictions = 0;
+
 typedef struct {
     int validBit;
     long long tag;
@@ -13,6 +18,23 @@ CacheLine** createCache(int S ,int E) {
         cache[i] = (CacheLine*)malloc(E * sizeof(CacheLine));
     }
     return cache;
+}
+void readContent(char content[] , int b ,int s ,int S ,int E ,CacheLine** cache) {
+    FILE* file = fopen(content, "r");
+    char operation; 
+    long int address , size;
+    
+    while(fscan(file , " %c %lx,%lx", &operation , &address , &size)) {
+        if (operation == 'I') {
+            continue;
+        }
+        if (operation == 'M') {
+            hits++;
+        }
+        long int tag = address >> (s + b);
+        long int setIndex = address >> b & (S - 1);
+    }
+    fclose(file);
 }
 int main(int argc ,char *argv[])
 {
@@ -40,6 +62,7 @@ int main(int argc ,char *argv[])
     }
     int S = 1 << s; // number of sets is 2^s 
     CacheLine** cache = createCache(S, E);
+    readContent(content , b , s , S , E , cache);
     printSummary(0, 0, 0);
     return 0;
 }
