@@ -1,5 +1,8 @@
 #include "cachelab.h"
 #include <getopt.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 
 static int hits = 0;
 static int misses = 0;
@@ -19,22 +22,73 @@ CacheLine** createCache(int S ,int E) {
     }
     return cache;
 }
-void readContent(char content[] , int b ,int s ,int S ,int E ,CacheLine** cache) {
-    FILE* file = fopen(content, "r");
-    char operation; 
-    long int address , size;
-    
-    while(fscan(file , " %c %lx,%lx", &operation , &address , &size)) {
-        if (operation == 'I') {
-            continue;
-        }
-        if (operation == 'M') {
-            hits++;
-        }
-        long int tag = address >> (s + b);
-        long int setIndex = address >> b & (S - 1);
-    }
-    fclose(file);
+
+void simulation(CacheLine ** cache, unsigned long int setIndex, unsigned long int tag, unsigned int S, unsigned int E) {
+	int match = 0; int addIndex = -1;
+	CacheLine * cacheSet = cache[setIndex];
+	for (int i = 0; i < E; i++) {
+		if (cacheSet[i].validBit == 1) {
+			// hit
+			if (cacheSet[i].tag == tag) {
+				match = 1;
+				hits++;
+				cache[setIndex][i].LRU = 0;
+				break;
+			}
+			// valid bit - tag doesn't match
+			else {
+				cache[setIndex][i].LRU += 1;
+			}
+		}
+		else {
+			addIndex = i;
+		}
+	}
+	// misses
+	if (match == 0) {
+		// miss - no eviction
+        misses++;
+		if (addIndex != -1) {
+			CacheLine addLine = {1, tag, 0}; // block == line
+			cache[setIndex][addIndex] = addLine;
+		}
+		// miss - do evict
+		else {
+			int max = 0; int evictIndex = -1;
+            // Get the least recently used block to be evicted
+			for (int i = 0; i < E; i++) {
+				if (cache[setIndex][i].validBit == 1 && cache[setIndex][i].LRU >= max) {
+					max = cache[setIndex][i].LRU;
+					evictIndex = i;
+				}
+			}
+			CacheLine replaceLine = {1, tag, 0};
+			cache[setIndex][evictIndex] = replaceLine;
+			evictions++;
+		}
+	}
+}
+void readContent(char fileContents[], unsigned int b, unsigned int s, unsigned int S, unsigned int E, CacheLine ** cache) {
+	FILE * file1 = fopen(fileContents, "r");
+	char operation; unsigned long int address; int size;
+	while (fscanf(file1, " %c %lx,%d", &operation, &address, &size) != EOF) {
+		if (operation == 'I') {
+			continue;
+		}
+		if (operation == 'M') {
+			hits++;
+		}
+		unsigned long int tag = address >> s >> b;
+		unsigned long int setIndex = address >> b & (S - 1);
+		simulation(cache, setIndex, tag, S, E);
+	}
+	fclose(file1);
+}
+void clearCache(CacheLine ** cache, unsigned int S) {
+	for (int i = 0; i < S; i++) {
+		free(cache[i]);
+	}
+	free(cache);
 }
 int main(int argc ,char *argv[])
 {
@@ -63,6 +117,7 @@ int main(int argc ,char *argv[])
     int S = 1 << s; // number of sets is 2^s 
     CacheLine** cache = createCache(S, E);
     readContent(content , b , s , S , E , cache);
-    printSummary(0, 0, 0);
+    clearCache(cache, S);
+    printSummary(hits, misses, evictions);
     return 0;
 }
